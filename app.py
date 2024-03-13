@@ -1,7 +1,8 @@
 import streamlit as st
 import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
 import folium
-from folium.plugins import HeatMap
 from folium.plugins import HeatMap
 from streamlit_folium import st_folium
 import altair as alt
@@ -31,18 +32,18 @@ df = execute_read_query(conn, select_jobs_query)
 
 # Rename columns for compatibility with st.map()
 df['Job_location'] = df['Job_location'].fillna('Unknown').astype(str)  
-df.rename(columns={'latitude': 'lat', 'longitude': 'lon'}, inplace=True)  
+df.rename(columns={'Latitude': 'lat', 'Longitude': 'lon'}, inplace=True)  
 df['Job_description_display'] = df['Job_description'].apply(lambda x: (x[:50] + '...' if len(x) > 50 else x) if isinstance(x, str) else x)
 
-# 过滤器准备
+# Getting unique values for filtering
 seniority_levels = df['Seniority_level'].unique().tolist()
 job_locations = sorted(list(set(df['Job_location']) - {'Unknown', 'United States'}))
 
-# 过滤器用户界面
+# Filters
 selected_seniority_levels = st.multiselect("Filter by Seniority Level", options=seniority_levels, default=seniority_levels)
 selected_job_location = st.selectbox("Filter by Job Location", ['All'] + job_locations)
 
-# 应用过滤器
+# Apply filters sequentially
 df_filtered = df[df['Seniority_level'].isin(selected_seniority_levels)]
 if selected_job_location != 'All':
     df_filtered = df_filtered[df_filtered['Job_location'] == selected_job_location]
@@ -51,9 +52,7 @@ if selected_job_location != 'All':
 df_filtered = df_filtered.drop(columns=['Location'], errors='ignore')
 
 # 显示过滤后的DataFrame
-# 显示过滤后的DataFrame
 if not df_filtered.empty:
-    # 隐藏不需要的列
     # 隐藏不需要的列
     columns_to_hide = ['Keyword', 'Person_hiring']
     df_display = df_filtered.drop(columns=columns_to_hide, errors='ignore')
@@ -66,8 +65,6 @@ if not df_filtered.empty:
         x=alt.X("count()", title="Number of Listings"),
         y=alt.Y("Job_location", sort='-x', title="Job Location"),
         color=alt.Color('Job_location', legend=alt.Legend(title="Locations"))
-        y=alt.Y("Job_location", sort='-x', title="Job Location"),
-        color=alt.Color('Job_location', legend=alt.Legend(title="Locations"))
     ).properties(
         title=f"Distribution of Job Listings in {category}"
     ).interactive()
@@ -75,13 +72,8 @@ if not df_filtered.empty:
 
     # 使用Folium的热力图显示地图
     df_map_data = df_filtered.dropna(subset=['lat', 'lon'])  # 确保仅对有地理信息的行进行处理
-    # 使用Folium的热力图显示地图
-    df_map_data = df_filtered.dropna(subset=['lat', 'lon'])  # 确保仅对有地理信息的行进行处理
     if not df_map_data.empty:
         m = folium.Map(location=[df_map_data['lat'].mean(), df_map_data['lon'].mean()], zoom_start=4)
-        heat_data = [[row['lat'], row['lon']] for index, row in df_map_data.iterrows()]
-        HeatMap(heat_data).add_to(m)
-        st_folium(m, width=1800, height=600)
         heat_data = [[row['lat'], row['lon']] for index, row in df_map_data.iterrows()]
         HeatMap(heat_data).add_to(m)
         st_folium(m, width=1800, height=600)
