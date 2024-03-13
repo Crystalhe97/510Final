@@ -1,7 +1,5 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
 import folium
 from folium.plugins import HeatMap
 from streamlit_folium import st_folium
