@@ -32,7 +32,7 @@ df = execute_read_query(conn, select_jobs_query)
 
 # Rename columns for compatibility with st.map()
 df['Job_location'] = df['Job_location'].fillna('Unknown').astype(str)  
-df.rename(columns={'Latitude': 'lat', 'Longitude': 'lon'}, inplace=True)  
+df.rename(columns={'latitude': 'lat', 'longitude': 'lon'}, inplace=True)  
 df['Job_description_display'] = df['Job_description'].apply(lambda x: (x[:50] + '...' if len(x) > 50 else x) if isinstance(x, str) else x)
 
 # Getting unique values for filtering
