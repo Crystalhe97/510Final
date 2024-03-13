@@ -38,25 +38,31 @@ seniority_levels = df['Seniority_level'].unique().tolist()
 job_locations = sorted(list(set(df['Job_location']) - {'Unknown', 'United States'}))
 
 # Filters
-selected_seniority_levels = st.multiselect("Filter by Seniority Level", options=seniority_levels, default=seniority_levels)
-selected_job_location = st.selectbox("Filter by Job Location", ['All'] + job_locations)
+selected_seniority_levels = st.multiselect("Seniority Level", options=seniority_levels, default=seniority_levels)
+selected_job_location = st.selectbox("Job Location", ['All'] + job_locations)
+
+# Search bar for company search
+company_search_query = st.text_input("Search for a company")
 
 # Apply filters sequentially
 df_filtered = df[df['Seniority_level'].isin(selected_seniority_levels)]
 if selected_job_location != 'All':
     df_filtered = df_filtered[df_filtered['Job_location'] == selected_job_location]
 
+# Filter based on search query
+if company_search_query:
+    df_filtered = df_filtered[df_filtered['Company'].str.contains(company_search_query, case=False, na=False)]
+
 # Filter for map data to include only rows with latitude and longitude
 df_filtered = df_filtered.drop(columns=['Location'], errors='ignore')
 
-# 显示过滤后的DataFrame
+# DataFrame
 if not df_filtered.empty:
-    # 隐藏不需要的列
     columns_to_hide = ['Keyword', 'Person_hiring']
     df_display = df_filtered.drop(columns=columns_to_hide, errors='ignore')
     st.dataframe(df_display)
 
-    # 交互式条形图
+    # Chart
     category = st.selectbox("Select a category", seniority_levels)  
     chart_data = df_filtered[(df_filtered['Seniority_level'] == category) & (df_filtered['Job_location'] != 'United States')]
     bar_chart = alt.Chart(chart_data).mark_bar().encode(
@@ -68,12 +74,22 @@ if not df_filtered.empty:
     ).interactive()
     st.altair_chart(bar_chart, use_container_width=True)
 
-    # 使用Folium的热力图显示地图
-    df_map_data = df_filtered.dropna(subset=['lat', 'lon'])  # 确保仅对有地理信息的行进行处理
+    # Folium Heat Map
+    df_map_data = df_filtered.dropna(subset=['lat', 'lon'])  
     if not df_map_data.empty:
+        show_markers = st.checkbox("Click Here to Show Companies Details", value=False)
         m = folium.Map(location=[df_map_data['lat'].mean(), df_map_data['lon'].mean()], zoom_start=4)
         heat_data = [[row['lat'], row['lon']] for index, row in df_map_data.iterrows()]
         HeatMap(heat_data).add_to(m)
+
+        if show_markers:
+            for index, row in df_map_data.iterrows():
+                popup_content = f"{row['Company']}<br>{row['Job_location']}"
+                folium.Marker(
+                    [row['lat'], row['lon']],
+                    popup=folium.Popup(popup_content, max_width=300),
+            ).add_to(m)
         st_folium(m, width=1800, height=600)
+                
 else:
     st.write("No job listings match your filters.")
