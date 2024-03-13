@@ -1,37 +1,52 @@
-import csv
 import requests
-import pandas as pd
-from tqdm import tqdm  # tqdm is optional, used for progress bar
+from db import get_db_conn
 
-def get_location(address):
-    """Get latitude and longitude for an address using Nominatim API."""
-    params = {'q': address, 'format': 'json', 'limit': 1}
-    headers = {'User-Agent': 'YourAppName/1.0'}  # Replace 'YourAppName/1.0' with your actual app name
-    response = requests.get("https://nominatim.openstreetmap.org/search", params=params, headers=headers)
+def fetch_job_locations():
+    """Fetch job locations from the database."""
+    conn = get_db_conn()
+    cursor = conn.cursor()
+    cursor.execute("SELECT my_row_id, Job_location FROM newtable WHERE latitude IS NULL OR longitude IS NULL")
+    job_locations = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return job_locations
+
+def fetch_geolocation(location_name):
+    """Fetch geolocation (latitude and longitude) for a given location name."""
+    base_url = "https://nominatim.openstreetmap.org/search"
+    params = {
+        'q': location_name,
+        'format': 'json',
+        'limit': 1
+    }
+    headers = {
+        'User-Agent': 'JobLocationScraper 1.0'
+    }
+    response = requests.get(base_url, params=params, headers=headers)
     if response.status_code == 200:
         data = response.json()
         if data:
-            return data[0]['lat'], data[0]['lon']
-    return None, None
+            return {
+                'latitude': data[0]['lat'],
+                'longitude': data[0]['lon']
+            }
+    return None
 
-# Load the original CSV
-df = pd.read_csv('LinkedIn Job Scraper _by Search_(1).csv')
+def update_job_location_with_coordinates(my_row_id, latitude, longitude):
+    """Update the job location with latitude and longitude in the database."""
+    conn = get_db_conn()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE newtable SET latitude = %s, longitude = %s WHERE my_row_id = %s", (latitude, longitude, my_row_id))
+    conn.commit()
+    cursor.close()
+    conn.close()
 
-# Remove duplicates for efficiency
-unique_locations = df['Job_location'].unique()
+def main():
+    job_locations = fetch_job_locations()
+    for my_row_id, location in job_locations:
+        geolocation = fetch_geolocation(location)
+        if geolocation:
+            update_job_location_with_coordinates(my_row_id, geolocation['latitude'], geolocation['longitude'])
 
-# Prepare a dictionary to map locations to coordinates
-location_coords = {}
-for location in tqdm(unique_locations):  # tqdm is optional, for progress indication
-    if location and location != 'Unknown':  # Check if location is not NaN or 'Unknown'
-        lat, lon = get_location(location)
-        location_coords[location] = (lat, lon)
-    else:
-        location_coords[location] = (None, None)
-
-# Map coordinates back to the original DataFrame
-df['Latitude'] = df['Job_location'].apply(lambda x: location_coords[x][0] if x in location_coords else None)
-df['Longitude'] = df['Job_location'].apply(lambda x: location_coords[x][1] if x in location_coords else None)
-
-# Save the enhanced DataFrame
-df.to_csv('Enhanced_LinkedIn_Job_Listings.csv', index=False)
+if __name__ == "__main__":
+    main()
