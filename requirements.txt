@@ -6,3 +6,7 @@ mysql-connector-python
 streamlit-folium
 sqlalchemy
 python-dotenv
+llama-index
+nltk
+pypdf
+pdfminer.six
