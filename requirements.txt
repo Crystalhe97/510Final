@@ -5,3 +5,4 @@ requests
 mysql-connector-python
 streamlit-folium
 sqlalchemy
+python-dotenv
