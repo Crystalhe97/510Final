@@ -25,7 +25,7 @@ streamlit run app.py
 - MySQL Server
 - An OpenAI API key (if using features related to AI)
 
-## Reflections
+## Reflection
 
 ### What You Learned
 - The intricacies of connecting to and interacting with MySQL databases using Python.
