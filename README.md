@@ -1,4 +1,5 @@
 # LinkedIn UX Job Finder
+Team members: Yuwei He, Jiaqi Wang
 
 ## Impress Me Sentence
 LinkedIn UX Job Finder transforms the complex job search landscape for UX professionals into a user-friendly platform, offering real-time insights, personalized resume advice, and interactive maps to navigate the competitive market with precision.
