@@ -13,17 +13,19 @@ from llama_index.core import VectorStoreIndex
 from llama_index.llms.openai import OpenAI
 from llama_index.readers.file import PDFReader
 from dotenv import load_dotenv
-from tempfile import NamedTemporaryFile
+from streamlit import session_state
 
 load_dotenv()
+
+if 'df' not in st.session_state:
+    st.session_state['df'] = pd.DataFrame()
+
 # Initialize the sidebar navigation
 st.sidebar.title('Navigation')
 page = st.sidebar.radio('Go to', ['LinkedIn Job Listings', 'Resume Suggestion'])
 
 if page == 'LinkedIn Job Listings':
     st.title('LinkedIn Job Listings')
-
-
 
     # Function to execute read query and return result as DataFrame
     def execute_read_query(connection, query):
@@ -43,7 +45,8 @@ if page == 'LinkedIn Job Listings':
 
     # Execute the query and convert to DataFrame
     df = execute_read_query(conn, select_jobs_query)
-
+    st.session_state.df = df
+    
     # Rename columns for compatibility with st.map()
     df['Job_location'] = df['Job_location'].fillna('Unknown').astype(str)  
     df.rename(columns={'latitude': 'lat', 'longitude': 'lon'}, inplace=True)  
@@ -114,7 +117,19 @@ if page == 'LinkedIn Job Listings':
 
 elif page == 'Resume Suggestion':
     st.title('Resume Analysis and Suggestions')
-
+    
+    if not st.session_state.df.empty:
+        job_id = st.number_input("Enter the job ID for which you want suggestions",
+                                 min_value=0, 
+                                 max_value=len(st.session_state.df)-1, 
+                                 key="job_id")
+        job_description = st.session_state.df.iloc[job_id]['Job_description'] if 0 <= job_id < len(st.session_state.df) else "No job description available"
+        st.text_area("Job Description", job_description, height=150)
+    else:
+        st.error("Please load the job listings from the 'LinkedIn Job Listings' page first.")
+        job_description = "No job description available"
+    
+    
     def analyze_resume(text):
         feedback = ["Resume Feedback:"]
         essential_sections = ["experience", "education", "skills"]
@@ -139,6 +154,27 @@ elif page == 'Resume Suggestion':
             return analyze_resume(text)
         else:
             return "It's challenging to determine the type of document. Please ensure the document is a resume."
+        
+    def generate_suggestions_based_on_job_description(existing_feedback, job_description):
+        suggestions = existing_feedback
+        keywords_to_suggestions = {
+            "communication skills": "Emphasize your communication skills, such as public speaking or writing experience.",
+            "problem-solving": "Detail instances where you successfully solved problems, especially complex or unexpected ones.",
+            "analytical skills": "Mention any experience with data analysis, research projects, or any technical skills relevant to data processing.",
+            "creative thinking": "If the job requires innovation, provide examples where you demonstrated creativity.",
+            "customer service": "If the job involves customer interaction, highlight any past customer service experiences.",
+            "technical skills": "List specific technical skills or tools you are proficient with that match the job requirements.",
+            "project management": "Include any project management experience, certifications, or relevant methodologies like Agile or SCRUM.",
+            "team": "Include experiences where you worked in or led a team."
+        }
+            
+        job_description_lower = job_description.lower()
+
+        for keyword, suggestion in keywords_to_suggestions.items():
+            if keyword in job_description_lower:
+                suggestions += "\n" + suggestion
+            
+        return suggestions
 
     # Streamlit UI for uploading a document
     uploaded_file = st.file_uploader("Upload your resume (PDF only)", type="pdf")
@@ -146,4 +182,5 @@ elif page == 'Resume Suggestion':
         bytes_data = uploaded_file.read()
         text = extract_text(BytesIO(bytes_data))
         feedback = classify_and_analyze_document(text)
-        st.text_area("Analysis Feedback", feedback, height=300)
+        suggestions = generate_suggestions_based_on_job_description("", job_description)
+        st.text_area("Analysis Feedback", feedback + suggestions, height=300)
